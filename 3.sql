@@ -1,1 +1,8 @@
-DROP PROCEDURE IF EXISTS dynamic_uni_combination_columns;
+SELECT 
+    PROCEDURE_NAME,
+    ARGUMENT_NAME,
+    DATA_TYPE
+FROM 
+    INFORMATION_SCHEMA.PROCEDURES
+WHERE 
+    PROCEDURE_NAME = 'dynamic_uni_combination_columns';
