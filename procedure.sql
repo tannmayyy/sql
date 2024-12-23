@@ -1,48 +1,80 @@
-CREATE OR REPLACE PROCEDURE check_uni_combination_for_usi_id(usi_id_input STRING)
-    RETURNS STRING
-    LANGUAGE JAVASCRIPT
-    EXECUTE AS CALLER
+CREATE OR REPLACE PROCEDURE dynamic_column_split()
+RETURNS TABLE (USI_ID STRING, Insight_Numbers STRING, Column1_Value STRING, Column2_Value STRING)
+LANGUAGE JAVASCRIPT
 AS
 $$
-try {
-    // Declare variables
-    var sql_command;
-    var result_InsightNumbers;
-    var result_UniCombination;
+    let result = [];
+    let sqlText;
 
-    // Query to get Insight_Numbers for the given USI_ID
-    sql_command = `SELECT Insight_Numbers 
-                   FROM table2 
-                   WHERE USI_ID = :1`;
-    
-    // Execute the query for Insight_Numbers
-    var stmt = snowflake.createStatement({sqlText: sql_command, binds: [usi_id_input]});
-    result_InsightNumbers = stmt.execute();
+    // Query to fetch data from table2 and table1
+    sqlText = `
+        SELECT
+            t2.USI_ID,
+            t2.Insight_Numbers,
+            SPLIT_PART(t1.Uni_Combination, '+', 1) AS Column1,
+            SPLIT_PART(t1.Uni_Combination, '+', 2) AS Column2
+        FROM
+            table2 t2
+        JOIN
+            table1 t1 ON t2.Insight_Numbers = t1.Insight_Numbers
+        WHERE
+            t2.USI_ID = 'aditya'
+    `;
 
-    // Check if any records are returned for the given USI_ID
-    if (result_InsightNumbers.next()) {
-        var insight_number = result_InsightNumbers.getColumnValue(1);
+    // Execute the first query
+    let data = snowflake.execute({sqlText: sqlText});
 
-        // Now, fetch Uni_Combination for the same Insight_Numbers from table1
-        sql_command = `SELECT Uni_Combination 
-                       FROM table1 
-                       WHERE Insight_Numbers = :1`;
+    // Loop through each row and validate columns in table3
+    while (data.next()) {
+        let usiId = data.getColumnValue(1);
+        let insightNumbers = data.getColumnValue(2);
+        let column1 = data.getColumnValue(3);
+        let column2 = data.getColumnValue(4);
 
-        stmt = snowflake.createStatement({sqlText: sql_command, binds: [insight_number]});
-        result_UniCombination = stmt.execute();
+        // Check if Column1 exists in table3
+        let column1Value = '';
+        let column2Value = '';
 
-        // Fetch and display the Uni_Combination
-        if (result_UniCombination.next()) {
-            var uni_combination = result_UniCombination.getColumnValue(1);
-            return "Uni_Combination for Insight_Numbers '" + insight_number + "' is: " + uni_combination;
-        } else {
-            return "No Uni_Combination found for Insight_Numbers '" + insight_number + "'";
+        let checkColumn1Query = `
+            SELECT ${column1} 
+            FROM table3
+            WHERE USI_ID = '${usiId}'
+            LIMIT 1
+        `;
+        try {
+            let col1Data = snowflake.execute({sqlText: checkColumn1Query});
+            if (col1Data.next()) {
+                column1Value = col1Data.getColumnValue(1);
+            }
+        } catch (err) {
+            column1Value = 'Column1 Not Found';
         }
-    } else {
-        return "No Insight_Numbers found for USI_ID: " + usi_id_input;
+
+        // Check if Column2 exists in table3
+        let checkColumn2Query = `
+            SELECT ${column2} 
+            FROM table3
+            WHERE USI_ID = '${usiId}'
+            LIMIT 1
+        `;
+        try {
+            let col2Data = snowflake.execute({sqlText: checkColumn2Query});
+            if (col2Data.next()) {
+                column2Value = col2Data.getColumnValue(1);
+            }
+        } catch (err) {
+            column2Value = 'Column2 Not Found';
+        }
+
+        // Append results to final output
+        result.push({
+            USI_ID: usiId,
+            Insight_Numbers: insightNumbers,
+            Column1_Value: column1Value,
+            Column2_Value: column2Value
+        });
     }
 
-} catch(err) {
-    return "Error: " + err;
-}
+    // Return the result as a table
+    return result;
 $$;
