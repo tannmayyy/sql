@@ -1,8 +1,7 @@
 SELECT 
     t2.USI_ID,
     t2.Insight_Numbers,
-    t3.COLUMN_NAME,
-    t3.COLUMN_VALUE
+    t3.*
 FROM 
     table2 t2
 JOIN 
