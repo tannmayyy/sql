@@ -12,33 +12,41 @@ WITH SplitColumns AS (
         t2.USI_ID = 'aditya'
 ),
 ValidatedColumns AS (
-    SELECT 
+    SELECT
         s.USI_ID,
         s.Insight_Numbers,
         s.Column1,
         s.Column2,
-        CASE WHEN COLUMN_NAME = s.Column1 THEN s.Column1 ELSE NULL END AS ValidColumn1,
-        CASE WHEN COLUMN_NAME = s.Column2 THEN s.Column2 ELSE NULL END AS ValidColumn2
-    FROM 
+        CASE WHEN EXISTS (
+            SELECT 1 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = 'table3' AND COLUMN_NAME = s.Column1
+        ) THEN s.Column1 ELSE NULL END AS ValidColumn1,
+        CASE WHEN EXISTS (
+            SELECT 1 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = 'table3' AND COLUMN_NAME = s.Column2
+        ) THEN s.Column2 ELSE NULL END AS ValidColumn2
+    FROM
         SplitColumns s
-    JOIN 
-        INFORMATION_SCHEMA.COLUMNS c
-    ON 
-        c.TABLE_NAME = 'table3'
 ),
 FinalOutput AS (
     SELECT
         vc.USI_ID,
         vc.Insight_Numbers,
-        vc.ValidColumn1,
-        vc.ValidColumn2,
-        t3.*
+        t3.* -- Include all columns from table3
     FROM
         ValidatedColumns vc
     LEFT JOIN
         table3 t3
-    ON 
-        t3.COLUMN_NAME = vc.ValidColumn1 OR t3.COLUMN_NAME = vc.ValidColumn2
+    ON
+        1=1 -- No direct column matching is required here
 )
-SELECT *
-FROM FinalOutput;
+SELECT
+    USI_ID,
+    Insight_Numbers,
+    ValidColumn1,
+    ValidColumn2,
+    t3.*
+FROM
+    FinalOutput;
